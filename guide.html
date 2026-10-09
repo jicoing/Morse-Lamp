@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{height:100%}
+body{margin:0;font:14px system-ui,sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+<title>Morse Lamp Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a single reading column with a sticky link back to the app, short sections, one table, one character chart. */
+:root {
+  --bg: #eef0f3;
+  --surface: #ffffff;
+  --ink: #11151c;
+  --muted: #5b6472;
+  --line: #d3d8e0;
+  --lamp: #f5a300;
+  --lamp-ink: #11151c;
+  --font-display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b101c; --surface: #121a2b; --ink: #e8ecf4; --muted: #8d98ad; --line: #243049; --lamp: #ffc233;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b101c; --surface: #121a2b; --ink: #e8ecf4; --muted: #8d98ad; --line: #243049; --lamp: #ffc233;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.6;
+  padding-inline: 16px; padding-block: 32px 64px; min-height: 100%;
+}
+.wrap { max-width: 680px; margin-inline: auto; display: flex; flex-direction: column; gap: 40px; }
+h1, h2 { font-family: var(--font-display); letter-spacing: -0.02em; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2rem, 7vw, 2.75rem); line-height: 1.05; }
+h2 { font-size: 1.5rem; line-height: 1.2; }
+p { margin: 0; max-width: 65ch; }
+.lede { color: var(--muted); font-size: 1.0625rem; margin-top: 10px; }
+.top { display: flex; flex-direction: column; gap: 18px; align-items: flex-start; }
+.btn {
+  display: inline-block; text-decoration: none; font-weight: 600;
+  background: var(--ink); color: var(--bg); padding: 11px 20px; border-radius: 10px;
+}
+.btn:focus-visible, a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+section { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+ol, ul { margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 10px; max-width: 65ch; }
+li::marker { color: var(--muted); font-family: var(--font-mono); }
+b { font-weight: 600; }
+code, .mono { font-family: var(--font-mono); font-size: 0.9em; }
+
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 420px; font-size: 0.9375rem; }
+th, td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.chart { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.cell {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; display: flex; align-items: center; gap: 12px; min-width: 0;
+}
+.cell .ch { font-family: var(--font-mono); font-weight: 500; width: 1.1em; text-align: center; }
+.cell .bars { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; }
+.bar { display: block; height: 7px; background: var(--ink); border-radius: 4px; }
+.bar.dot { width: 7px; }
+.bar.dash { width: 20px; }
+.pad-demo { display: flex; align-items: center; gap: 10px; }
+.pad-demo .bar { background: var(--lamp); }
+.note { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Morse Lamp Guide</h1>
+      <p class="lede">Morse Lamp turns a short sentence into Morse code and sends it as tones, a flashing screen or the phone torch. It can also listen to you tap a message and decode it.</p>
+    </div>
+    <a class="btn" href="index.html">Open Morse Lamp</a>
+  </header>
+
+  <section>
+    <h2>Send a message</h2>
+    <ol>
+      <li>Open the <b>Send</b> tab and type a sentence of up to 60 characters. The dots and dashes appear as you type.</li>
+      <li>Choose the outputs. <b>Sound</b> plays a tone, <b>Screen flash</b> turns the whole screen white for each signal, and <b>Camera torch</b> flashes the LED on phones that allow it.</li>
+      <li>Set <b>Speed</b> in words per minute and <b>Pitch</b> in hertz. Start at 8–12 WPM if the person receiving it is a beginner.</li>
+      <li>Press <b>Transmit</b>. The lamp on the page and the current dot or dash light up in time with the signal.</li>
+      <li>Tap the screen, press <b>Stop</b> or press Esc to cancel.</li>
+    </ol>
+    <p>Letters, numbers and the marks . , ? ! / - ' : @ are supported. Anything else is skipped.</p>
+  </section>
+
+  <section>
+    <h2>Decode by tapping</h2>
+    <p>Decode mode turns your taps into text. Use it to practise or to read a message someone is sending you by sound or light.</p>
+    <ol>
+      <li>Open the <b>Decode</b> tab and set <b>Speed</b> to match the sender. The app judges your taps against that speed.</li>
+      <li>Press and hold the pad (or hold Space) for as long as the signal lasts. A short press is a dot and a long press is a dash.</li>
+      <li>Pause briefly between letters. The app finishes the letter and shows it in the decoded box.</li>
+      <li>Pause longer between words. The app adds a space.</li>
+      <li>Use <b>Backspace</b> to remove the last character, <b>Clear</b> to start over, or <b>Copy text</b> to keep the result. Open the chart in the tab if you forget a letter.</li>
+    </ol>
+    <div class="note">
+      <div class="pad-demo" aria-hidden="true"><span class="bar dot"></span><span class="bar dot"></span><span class="bar dot"></span><span class="bar dash"></span><span class="bar dash"></span><span class="bar dash"></span><span class="bar dot"></span><span class="bar dot"></span><span class="bar dot"></span></div>
+      <p style="margin-top:10px">That is SOS: three short taps, three long taps, three short taps. A letter the app cannot match shows as <span class="mono">?</span>.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>How the timing works</h2>
+    <p>Everything is measured in one unit, which is the length of a dot. The unit in milliseconds is 1200 divided by the speed in WPM.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Part</th><th>Length</th></tr></thead>
+        <tbody>
+          <tr><td>Dot</td><td class="num">1 unit</td></tr>
+          <tr><td>Dash</td><td class="num">3 units</td></tr>
+          <tr><td>Gap inside a letter</td><td class="num">1 unit</td></tr>
+          <tr><td>Gap between letters</td><td class="num">3 units</td></tr>
+          <tr><td>Gap between words</td><td class="num">7 units</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Speed</th><th>Dot</th><th>Dash</th><th>Letter pause</th></tr></thead>
+        <tbody>
+          <tr><td class="num">5 WPM</td><td class="num">240 ms</td><td class="num">720 ms</td><td class="num">720 ms</td></tr>
+          <tr><td class="num">8 WPM</td><td class="num">150 ms</td><td class="num">450 ms</td><td class="num">450 ms</td></tr>
+          <tr><td class="num">12 WPM</td><td class="num">100 ms</td><td class="num">300 ms</td><td class="num">300 ms</td></tr>
+          <tr><td class="num">15 WPM</td><td class="num">80 ms</td><td class="num">240 ms</td><td class="num">240 ms</td></tr>
+          <tr><td class="num">20 WPM</td><td class="num">60 ms</td><td class="num">180 ms</td><td class="num">180 ms</td></tr>
+          <tr><td class="num">25 WPM</td><td class="num">48 ms</td><td class="num">144 ms</td><td class="num">144 ms</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>When decoding, the app counts a press shorter than 2 units as a dot and anything longer as a dash. A pause of 2 units or more ends the letter, and a pause of 5 units or more adds a space.</p>
+  </section>
+
+  <section>
+    <h2>Character chart</h2>
+    <div class="chart" id="chart"></div>
+  </section>
+
+  <section>
+    <h2>Good to know</h2>
+    <ul>
+      <li>The camera torch only works when the page is allowed to use the camera and the phone exposes its torch, which is mainly Chrome on Android. Where it is blocked, the app says so and keeps sending with sound and screen flash.</li>
+      <li>The screen flash blinks quickly. Lower the speed or switch it off if flashing light bothers you.</li>
+      <li>The app asks the phone to keep the screen on while it sends, if the phone allows it.</li>
+      <li>SOS is sent here as three separate letters with normal letter gaps, not as the run-together emergency signal.</li>
+      <li>Sound starts only after you press a button, because browsers block audio until you interact with the page.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+(function () {
+  var M = {
+    A: ".-", B: "-...", C: "-.-.", D: "-..", E: ".", F: "..-.", G: "--.", H: "....", I: "..", J: ".---",
+    K: "-.-", L: ".-..", M: "--", N: "-.", O: "---", P: ".--.", Q: "--.-", R: ".-.", S: "...", T: "-",
+    U: "..-", V: "...-", W: ".--", X: "-..-", Y: "-.--", Z: "--..",
+    0: "-----", 1: ".----", 2: "..---", 3: "...--", 4: "....-", 5: ".....", 6: "-....", 7: "--...", 8: "---..", 9: "----.",
+    ".": ".-.-.-", ",": "--..--", "?": "..--..", "!": "-.-.--", "/": "-..-.", "-": "-....-", "'": ".----.", ":": "---...", "@": ".--.-."
+  };
+  var root = document.getElementById("chart");
+  Object.keys(M).forEach(function (k) {
+    var c = document.createElement("div"); c.className = "cell";
+    var ch = document.createElement("span"); ch.className = "ch"; ch.textContent = k;
+    var bars = document.createElement("span"); bars.className = "bars";
+    M[k].split("").forEach(function (s) {
+      var b = document.createElement("span"); b.className = "bar " + (s === "." ? "dot" : "dash"); bars.appendChild(b);
+    });
+    c.appendChild(ch); c.appendChild(bars); root.appendChild(c);
+  });
+})();
+</script>
+
+</body>
+</html>

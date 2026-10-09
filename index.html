@@ -180,9 +180,12 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
   min-height: 210px; border-radius: 16px; text-align: center; padding: 16px;
   background: var(--surface); border: 1px solid var(--line);
-  user-select: none; -webkit-user-select: none; touch-action: none; -webkit-tap-highlight-color: transparent;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  touch-action: none; -webkit-tap-highlight-color: transparent;
   cursor: pointer;
 }
+.pad * { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; pointer-events: none; }
+.pad::selection, .pad *::selection { background: transparent; }
 .pad strong { font-family: var(--font-display); font-size: 1.5rem; letter-spacing: -0.01em; }
 .pad span { font-size: 0.875rem; color: var(--muted); }
 .pad.down { background: var(--lamp); border-color: var(--lamp); color: var(--lamp-ink); }
@@ -463,6 +466,32 @@ summary { cursor: pointer; font-weight: 600; }
     osc = null; gain = null;
   }
 
+  /* iOS keeps Web Audio silent until it is unlocked from a tap, and mutes it when the
+     side switch is on. Playing a silent <audio> element switches iOS to playback mode. */
+  var IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var silentEl = null;
+  function silentWavUri() {
+    var rate = 8000, n = 800, buf = new ArrayBuffer(44 + n), v = new DataView(buf);
+    function str(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }
+    str(0, "RIFF"); v.setUint32(4, 36 + n, true); str(8, "WAVE"); str(12, "fmt "); v.setUint32(16, 16, true);
+    v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true); v.setUint32(28, rate, true);
+    v.setUint16(32, 1, true); v.setUint16(34, 8, true); str(36, "data"); v.setUint32(40, n, true);
+    var bytes = new Uint8Array(buf), s = "", i, j;
+    for (i = 44; i < 44 + n; i++) bytes[i] = 128;
+    for (j = 0; j < bytes.length; j++) s += String.fromCharCode(bytes[j]);
+    return "data:audio/wav;base64," + btoa(s);
+  }
+  function unlockAudio() {
+    try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
+    ensureCtx();
+    try {
+      if (!silentEl) { silentEl = new Audio(silentWavUri()); silentEl.loop = true; silentEl.setAttribute("playsinline", ""); }
+      var p = silentEl.play();
+      if (p && p.catch) p.catch(function () {});
+    } catch (e) {}
+  }
+  function releaseAudio() { try { if (silentEl) silentEl.pause(); } catch (e) {} }
+
   function startTorch() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.resolve(false);
     return navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } } }).then(function (stream) {
@@ -511,12 +540,18 @@ summary { cursor: pointer; font-weight: 600; }
       return;
     }
     setNote("");
+    unlockAudio();
     var id = ++runId;
     running = true;
     goBtn.textContent = "Stop";
     resetMarks();
     try { if ($("sound").checked) ensureAudio(); } catch (e) { setNote("Sound could not start in this view.", true); }
-    if ($("torch").checked) {
+    if (ctx && ctx.state !== "running") {
+      await Promise.race([ctx.resume(), new Promise(function (r) { setTimeout(r, 600); })]);
+    }
+    if ($("torch").checked && IS_IOS) {
+      setNote("iPhones do not let web pages use the torch. Sound and screen flash are used instead.", true);
+    } else if ($("torch").checked) {
       var ok = await Promise.race([
         startTorch(),
         new Promise(function (r) { setTimeout(function () { r(false); }, 2500); })
@@ -560,6 +595,7 @@ summary { cursor: pointer; font-weight: 600; }
     flash.classList.remove("on");
     flash.hidden = true;
     endAudio(); endTorch();
+    if (mode !== "decode") releaseAudio();
     try { if (wake) wake.release(); } catch (e) {}
     wake = null;
     goBtn.textContent = "Transmit";
@@ -622,6 +658,7 @@ summary { cursor: pointer; font-weight: 600; }
 
   function pressStart() {
     if (tap.down) return;
+    unlockAudio();
     tap.down = true;
     clearTimeout(tap.letterTimer); clearTimeout(tap.wordTimer);
     tap.t0 = performance.now();
@@ -679,6 +716,7 @@ summary { cursor: pointer; font-weight: 600; }
     resetTap();
     lamp.classList.remove("on");
     mode = m;
+    if (m !== "decode") releaseAudio();
     var d = m === "decode";
     $("sendView").hidden = d;
     $("decodeView").hidden = !d;
@@ -730,6 +768,12 @@ summary { cursor: pointer; font-weight: 600; }
   });
   pad.addEventListener("keyup", function (e) { if (e.key === "Enter") { e.preventDefault(); pressEnd(); } });
   pad.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  pad.addEventListener("selectstart", function (e) { e.preventDefault(); });
+  pad.addEventListener("dragstart", function (e) { e.preventDefault(); });
+  /* iOS starts text selection and the magnifier on a long touch unless the touch itself is cancelled. */
+  ["touchstart", "touchmove", "touchend", "touchcancel"].forEach(function (t) {
+    pad.addEventListener(t, function (e) { if (e.cancelable) e.preventDefault(); }, { passive: false });
+  });
 
   $("tabSend").addEventListener("click", function () { setMode("send"); });
   $("tabDecode").addEventListener("click", function () { setMode("decode"); });

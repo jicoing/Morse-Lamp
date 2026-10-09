@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{height:100%}
+body{margin:0;font:14px system-ui,sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+<title>Buy Me a Coffee</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a narrow centered column. The QR code leads, then two copyable payment rows, then a thank-you and a way back. */
+:root {
+  --bg: #eef0f3;
+  --surface: #ffffff;
+  --ink: #11151c;
+  --muted: #5b6472;
+  --line: #d3d8e0;
+  --lamp: #f5a300;
+  --qr-bg: #ffffff;
+  --qr-fg: #11151c;
+  --font-display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b101c; --surface: #121a2b; --ink: #e8ecf4; --muted: #8d98ad; --line: #243049; --lamp: #ffc233;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b101c; --surface: #121a2b; --ink: #e8ecf4; --muted: #8d98ad; --line: #243049; --lamp: #ffc233;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.55;
+  padding-inline: 16px; padding-block: 32px 56px; min-height: 100%;
+}
+.wrap { max-width: 460px; margin-inline: auto; display: flex; flex-direction: column; align-items: center; gap: 28px; text-align: center; }
+a { color: var(--ink); font-weight: 600; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.qr {
+  width: min(280px, 100%); aspect-ratio: 1 / 1;
+  background: var(--qr-bg); border: 1px solid var(--line); border-radius: 18px;
+  padding: 14px; display: flex; align-items: center; justify-content: center;
+}
+.qr svg, .qr img { width: 100%; height: 100%; display: block; }
+.qr .fail { color: #5b6472; font-size: 0.875rem; padding: 12px; }
+.cap { font-size: 0.8125rem; color: var(--muted); margin: -14px 0 0; }
+
+.head { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.mug { color: var(--ink); }
+h1 { font-family: var(--font-display); font-size: clamp(1.9rem, 7vw, 2.4rem); line-height: 1.08; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 40ch; }
+
+.rows { width: 100%; display: flex; flex-direction: column; gap: 12px; text-align: left; }
+.pay {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 12px 12px 16px;
+}
+.pay .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pay .lab { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.pay .val { font-family: var(--font-mono); font-size: 0.9375rem; overflow-wrap: anywhere; }
+button.copy {
+  flex: none; font: 600 0.875rem var(--font-body); cursor: pointer;
+  background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 9px 14px; min-width: 76px;
+}
+button.copy.done { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+.small { font-size: 0.8125rem; color: var(--muted); margin: 0; max-width: 46ch; }
+.foot { width: 100%; border-top: 1px solid var(--line); padding-top: 20px; font-size: 0.875rem; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <div class="qr" id="qr" role="img" aria-label="Payment QR code"></div>
+  <p class="cap" id="cap">Scan with any UPI app</p>
+
+  <header class="head">
+    <svg class="mug" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 3.5v2M12 3.5v2"/></svg>
+    <h1>Buy me a coffee</h1>
+    <p class="lede">Morse Lamp is free to use. If it helped you, a small donation keeps me building.</p>
+  </header>
+
+  <section class="rows" aria-label="Payment details">
+    <div class="pay">
+      <div class="txt"><span class="lab">UPI ID</span><span class="val" id="upiVal">jicoing@okicici</span></div>
+      <button class="copy" id="upiCopy" type="button" data-src="upiVal">Copy</button>
+    </div>
+    <div class="pay">
+      <div class="txt"><span class="lab">PayPal</span><span class="val" id="ppVal">paypal.me/jicoing</span></div>
+      <button class="copy" id="ppCopy" type="button" data-src="ppVal">Copy</button>
+    </div>
+  </section>
+
+  <p class="small">Donations go straight to me. This page does not process any payment.</p>
+
+  <footer class="foot">
+    <a href="index.html">Back to Morse Lamp</a>
+    <a href="https://github.com/jicoing" target="_blank" rel="noopener">GitHub · jicoing</a>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script>
+(function () {
+  /* Edit these four values. Leave qrImage empty to build the QR from the UPI ID,
+     or set it to the data: URI of your own QR image to show that instead. */
+  var CONFIG = {
+    name: "Your Name",
+    upi: "jicoing@okicici",
+    paypal: "paypal.me/jicoing",
+    qrImage: ""
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  $("upiVal").textContent = CONFIG.upi;
+  $("ppVal").textContent = CONFIG.paypal;
+
+  var box = $("qr");
+  function showFail(t) {
+    var d = document.createElement("div"); d.className = "fail"; d.textContent = t; box.appendChild(d);
+  }
+
+  if (CONFIG.qrImage) {
+    var img = document.createElement("img");
+    img.src = CONFIG.qrImage; img.alt = "Payment QR code";
+    box.appendChild(img);
+    $("cap").textContent = "Scan to pay";
+  } else if (typeof qrcode === "function") {
+    try {
+      var text = "upi://pay?pa=" + encodeURIComponent(CONFIG.upi) + "&pn=" + encodeURIComponent(CONFIG.name) + "&cu=INR";
+      var qr = qrcode(0, "M");
+      qr.addData(text); qr.make();
+      var n = qr.getModuleCount(), m = 2, size = n + m * 2, d = "";
+      for (var r = 0; r < n; r++) {
+        for (var c = 0; c < n; c++) {
+          if (qr.isDark(r, c)) d += "M" + (c + m) + " " + (r + m) + "h1v1h-1z";
+        }
+      }
+      var NS = "http://www.w3.org/2000/svg";
+      var svg = document.createElementNS(NS, "svg");
+      svg.setAttribute("viewBox", "0 0 " + size + " " + size);
+      svg.setAttribute("shape-rendering", "crispEdges");
+      var bg = document.createElementNS(NS, "rect");
+      bg.setAttribute("width", size); bg.setAttribute("height", size); bg.setAttribute("fill", "#ffffff");
+      var p = document.createElementNS(NS, "path");
+      p.setAttribute("d", d); p.setAttribute("fill", "#11151c");
+      svg.appendChild(bg); svg.appendChild(p);
+      box.appendChild(svg);
+    } catch (e) { showFail("The QR code could not be drawn. Use the UPI ID below."); }
+  } else {
+    showFail("The QR code could not load. Use the UPI ID below.");
+  }
+
+  function copy(btn) {
+    var text = $(btn.getAttribute("data-src")).textContent;
+    function ok() {
+      btn.textContent = "Copied"; btn.classList.add("done");
+      setTimeout(function () { btn.textContent = "Copy"; btn.classList.remove("done"); }, 1500);
+    }
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); ok(); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, fallback);
+    else fallback();
+  }
+  $("upiCopy").addEventListener("click", function () { copy(this); });
+  $("ppCopy").addEventListener("click", function () { copy(this); });
+})();
+</script>
+
+</body>
+</html>

@@ -1,3 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{height:100%}
+body{margin:0;font:14px system-ui,sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
 <title>Morse Lamp</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -197,11 +209,13 @@ summary { cursor: pointer; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .lamp, .sym { transition: none; } }
 </style>
 
+</head>
+<body>
 <div class="wrap">
   <header>
     <h1>Morse Lamp</h1>
     <p class="sub">Send a short message as tones, a flashing screen or the phone torch. Or tap a message in and watch it decode.</p>
-    <a class="guide" href="https://claude.ai/artifact/ADv29kSJfCXgcS8uoooNbd">How it works and how to use it</a>
+    <a class="guide" href="guide.html">How it works and how to use it</a>
   </header>
 
   <div class="tabs" role="tablist" aria-label="Mode">
@@ -273,7 +287,7 @@ summary { cursor: pointer; font-weight: 600; }
     </details>
   </div>
 
-  <section class="sliders">
+<section class="sliders">
     <div class="slider">
       <div class="top"><label for="wpm">Speed</label><output id="wpmOut" for="wpm">12 WPM</output></div>
       <input type="range" id="wpm" min="5" max="25" step="1" value="12">
@@ -283,447 +297,12 @@ summary { cursor: pointer; font-weight: 600; }
       <input type="range" id="tone" min="350" max="900" step="10" value="600">
     </div>
   </section>
+
+  <footer style="margin-top: 24px; text-align: center;">
+    <a class="guide" href="https://github.com/jicoing" target="_blank" rel="noopener">GitHub</a>
+  </footer>
 </div>
 
 <div class="flash" id="flash" hidden><span>Tap to stop</span></div>
-
-<script>
-(function () {
-  var MORSE = {
-    A: ".-", B: "-...", C: "-.-.", D: "-..", E: ".", F: "..-.", G: "--.", H: "....", I: "..", J: ".---",
-    K: "-.-", L: ".-..", M: "--", N: "-.", O: "---", P: ".--.", Q: "--.-", R: ".-.", S: "...", T: "-",
-    U: "..-", V: "...-", W: ".--", X: "-..-", Y: "-.--", Z: "--..",
-    0: "-----", 1: ".----", 2: "..---", 3: "...--", 4: "....-", 5: ".....", 6: "-....", 7: "--...", 8: "---..", 9: "----.",
-    ".": ".-.-.-", ",": "--..--", "?": "..--..", "!": "-.-.--", "/": "-..-.", "-": "-....-", "'": ".----.", ":": "---...", "@": ".--.-."
-  };
-  var REVERSE = {};
-  Object.keys(MORSE).forEach(function (k) { REVERSE[MORSE[k]] = k; });
-
-  var $ = function (id) { return document.getElementById(id); };
-  var msg = $("msg"), morseEl = $("morse"), lamp = $("lamp"), statusEl = $("status"), flash = $("flash");
-  var goBtn = $("go"), noteEl = $("note");
-  var model = [];            // words -> letters -> { ch, code, el, symEls }
-  var running = false, runId = 0, mode = "send";
-  var ctx = null, osc = null, gain = null, torchTrack = null, torchStream = null, wake = null;
-
-  /* ---------- settings ---------- */
-  function load() {
-    try {
-      var s = JSON.parse(localStorage.getItem("morse-lamp") || "{}");
-      if (s.wpm) $("wpm").value = s.wpm;
-      if (s.tone) $("tone").value = s.tone;
-      if (typeof s.sound === "boolean") $("sound").checked = s.sound;
-      if (typeof s.light === "boolean") $("light").checked = s.light;
-      if (typeof s.torch === "boolean") $("torch").checked = s.torch;
-    } catch (e) {}
-  }
-  function save() {
-    try {
-      localStorage.setItem("morse-lamp", JSON.stringify({
-        wpm: +$("wpm").value, tone: +$("tone").value,
-        sound: $("sound").checked, light: $("light").checked, torch: $("torch").checked
-      }));
-    } catch (e) {}
-  }
-
-  /* ---------- parsing and rendering (send) ---------- */
-  function unit() { return 1200 / +$("wpm").value; }
-
-  function parse(text) {
-    return text.toUpperCase().split(/\s+/).map(function (w) {
-      return w.split("").filter(function (c) { return MORSE[c]; }).map(function (c) { return { ch: c, code: MORSE[c] }; });
-    }).filter(function (w) { return w.length; });
-  }
-
-  function render() {
-    var words = parse(msg.value);
-    morseEl.textContent = "";
-    model = words;
-    $("count").textContent = msg.value.length + " / 60";
-    if (!words.length) {
-      var p = document.createElement("p");
-      p.className = "empty";
-      p.textContent = "Letters, numbers and . , ? ! / - ' : @ turn into dots and dashes here.";
-      morseEl.appendChild(p);
-      goBtn.disabled = true; $("copy").disabled = true; $("eta").textContent = "";
-      return;
-    }
-    goBtn.disabled = false; $("copy").disabled = false;
-    words.forEach(function (w) {
-      var wEl = document.createElement("div");
-      wEl.className = "word";
-      w.forEach(function (l) {
-        var lEl = document.createElement("div");
-        lEl.className = "letter";
-        var cEl = document.createElement("div");
-        cEl.className = "code";
-        l.symEls = l.code.split("").map(function (s) {
-          var sp = document.createElement("span");
-          sp.className = "sym " + (s === "." ? "dot" : "dash");
-          cEl.appendChild(sp);
-          return sp;
-        });
-        var g = document.createElement("div");
-        g.className = "glyph";
-        g.textContent = l.ch;
-        lEl.appendChild(cEl); lEl.appendChild(g);
-        l.el = lEl;
-        wEl.appendChild(lEl);
-      });
-      morseEl.appendChild(wEl);
-    });
-    updateEta();
-  }
-
-  function buildSteps() {
-    var u = unit(), steps = [];
-    model.forEach(function (w, wi) {
-      w.forEach(function (l, li) {
-        l.code.split("").forEach(function (s, si) {
-          steps.push({ on: true, dur: (s === "." ? 1 : 3) * u, sym: l.symEls[si], letter: l.el });
-          if (si < l.code.length - 1) steps.push({ on: false, dur: u });
-        });
-        if (li < w.length - 1) steps.push({ on: false, dur: 3 * u, letterEnd: l.el });
-      });
-      if (wi < model.length - 1) steps.push({ on: false, dur: 7 * u });
-    });
-    return steps;
-  }
-
-  function updateEta() {
-    if (!model.length) return;
-    var total = buildSteps().reduce(function (a, s) { return a + s.dur; }, 0);
-    $("eta").textContent = "About " + (total / 1000).toFixed(1) + " s";
-  }
-
-  function plainMorse() {
-    return model.map(function (w) { return w.map(function (l) { return l.code; }).join(" "); }).join("  /  ");
-  }
-
-  /* ---------- output devices ---------- */
-  function ensureCtx() {
-    var AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return false;
-    if (!ctx) ctx = new AC();
-    if (ctx.state === "suspended") ctx.resume();
-    return true;
-  }
-  function ensureAudio() {
-    if (!ensureCtx()) return false;
-    osc = ctx.createOscillator();
-    gain = ctx.createGain();
-    gain.gain.value = 0;
-    osc.type = "sine";
-    osc.frequency.value = +$("tone").value;
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.start();
-    return true;
-  }
-  function endAudio() {
-    try { if (osc) { gain.gain.setTargetAtTime(0, ctx.currentTime, 0.005); osc.stop(ctx.currentTime + 0.05); } } catch (e) {}
-    osc = null; gain = null;
-  }
-
-  function startTorch() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.resolve(false);
-    return navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } } }).then(function (stream) {
-      var t = stream.getVideoTracks()[0];
-      var caps = t && t.getCapabilities ? t.getCapabilities() : null;
-      if (!caps || !caps.torch) { stream.getTracks().forEach(function (x) { x.stop(); }); return false; }
-      torchStream = stream; torchTrack = t;
-      return true;
-    }).catch(function () { return false; });
-  }
-  function endTorch() {
-    try { if (torchStream) torchStream.getTracks().forEach(function (x) { x.stop(); }); } catch (e) {}
-    torchStream = null; torchTrack = null;
-  }
-
-  function signal(on) {
-    lamp.classList.toggle("on", on);
-    if (running && $("light").checked) flash.classList.toggle("on", on);
-    if (gain && $("sound").checked && ctx) {
-      var t = ctx.currentTime;
-      gain.gain.cancelScheduledValues(t);
-      gain.gain.setTargetAtTime(on ? 0.35 : 0, t, 0.004);
-    }
-    if (torchTrack) torchTrack.applyConstraints({ advanced: [{ torch: on }] }).catch(function () {});
-  }
-
-  function sleepUntil(target) {
-    return new Promise(function (r) { setTimeout(r, Math.max(0, target - performance.now())); });
-  }
-
-  function resetMarks() {
-    model.forEach(function (w) { w.forEach(function (l) {
-      l.el.classList.remove("live");
-      l.symEls.forEach(function (s) { s.classList.remove("live", "done"); });
-    }); });
-  }
-
-  /* ---------- transmit ---------- */
-  function setNote(t, warn) { noteEl.textContent = t || ""; noteEl.className = "note" + (warn ? " warn" : ""); }
-
-  async function transmit() {
-    if (running) { stop(); return; }
-    if (!model.length) return;
-    if (!$("sound").checked && !$("light").checked && !$("torch").checked) {
-      setNote("Turn on at least one output: sound, screen flash or camera torch.", true);
-      return;
-    }
-    setNote("");
-    var id = ++runId;
-    running = true;
-    goBtn.textContent = "Stop";
-    resetMarks();
-    try { if ($("sound").checked) ensureAudio(); } catch (e) { setNote("Sound could not start in this view.", true); }
-    if ($("torch").checked) {
-      var ok = await Promise.race([
-        startTorch(),
-        new Promise(function (r) { setTimeout(function () { r(false); }, 2500); })
-      ]);
-      if (!ok) { endTorch(); setNote("The camera torch is not available here. This view may block the camera, or the device has no torch. Sound and screen flash still work.", true); }
-    }
-    if (id !== runId) { endTorch(); return; }
-    if ($("light").checked) flash.hidden = false;
-    try {
-      if (navigator.wakeLock) navigator.wakeLock.request("screen").then(function (w) { wake = w; }, function () {});
-    } catch (e) {}
-
-    var steps = buildSteps();
-    var count = steps.filter(function (s) { return s.on; }).length, done = 0;
-    var t0 = performance.now(), target = t0 + 250, prev = null, prevLetter = null;
-    await sleepUntil(target);
-    for (var i = 0; i < steps.length; i++) {
-      if (id !== runId) return;
-      var s = steps[i];
-      if (s.on) {
-        if (prev) { prev.classList.remove("live"); prev.classList.add("done"); }
-        if (prevLetter && prevLetter !== s.letter) prevLetter.classList.remove("live");
-        s.sym.classList.add("live"); s.letter.classList.add("live");
-        prev = s.sym; prevLetter = s.letter;
-        done++;
-        statusEl.textContent = "Sending · signal " + done + " of " + count;
-      }
-      signal(s.on);
-      target += s.dur;
-      await sleepUntil(target);
-    }
-    if (id !== runId) return;
-    signal(false);
-    if (prev) { prev.classList.remove("live"); prev.classList.add("done"); }
-    finish("Sent · " + count + " signals");
-  }
-
-  function finish(text) {
-    signal(false);
-    running = false;
-    flash.classList.remove("on");
-    flash.hidden = true;
-    endAudio(); endTorch();
-    try { if (wake) wake.release(); } catch (e) {}
-    wake = null;
-    goBtn.textContent = "Transmit";
-    statusEl.textContent = text || "Ready";
-  }
-
-  function stop() {
-    runId++;
-    finish("Stopped");
-    resetMarks();
-  }
-
-  /* ---------- decode by tapping ---------- */
-  var pad = $("pad"), keyedEl = $("keyed"), decodedEl = $("decoded");
-  var tap = { down: false, t0: 0, cur: "", text: "", letterTimer: null, wordTimer: null, tone: null };
-
-  function tapTone(on) {
-    if (!on) {
-      if (!tap.tone) return;
-      var t = tap.tone; tap.tone = null;
-      try { t.g.gain.setTargetAtTime(0, ctx.currentTime, 0.004); t.o.stop(ctx.currentTime + 0.06); } catch (e) {}
-      return;
-    }
-    if (!$("sound").checked || tap.tone || !ensureCtx()) return;
-    var o = ctx.createOscillator(), g = ctx.createGain();
-    g.gain.value = 0; o.type = "sine"; o.frequency.value = +$("tone").value;
-    o.connect(g); g.connect(ctx.destination); o.start();
-    g.gain.setTargetAtTime(0.35, ctx.currentTime, 0.004);
-    tap.tone = { o: o, g: g };
-  }
-
-  function drawKeyed() {
-    keyedEl.textContent = "";
-    tap.cur.split("").forEach(function (s) {
-      if (!s) return;
-      var sp = document.createElement("span");
-      sp.className = "sym " + (s === "." ? "dot" : "dash");
-      keyedEl.appendChild(sp);
-    });
-  }
-
-  function drawDecoded() {
-    var empty = !tap.text.length;
-    decodedEl.textContent = empty ? "Your decoded message appears here." : tap.text;
-    decodedEl.classList.toggle("placeholder", empty);
-    $("decCount").textContent = tap.text.length + (tap.text.length === 1 ? " character" : " characters");
-  }
-
-  function commitLetter() {
-    if (!tap.cur) return;
-    tap.text += REVERSE[tap.cur] || "?";
-    tap.cur = "";
-    drawKeyed(); drawDecoded();
-  }
-
-  function addSpace() {
-    commitLetter();
-    if (tap.text && tap.text.slice(-1) !== " ") { tap.text += " "; drawDecoded(); }
-  }
-
-  function pressStart() {
-    if (tap.down) return;
-    tap.down = true;
-    clearTimeout(tap.letterTimer); clearTimeout(tap.wordTimer);
-    tap.t0 = performance.now();
-    pad.classList.add("down");
-    lamp.classList.add("on");
-    tapTone(true);
-  }
-
-  function pressEnd() {
-    if (!tap.down) return;
-    tap.down = false;
-    var dur = performance.now() - tap.t0, u = unit();
-    pad.classList.remove("down");
-    lamp.classList.remove("on");
-    tapTone(false);
-    var sym = dur < 2 * u ? "." : "-";
-    tap.cur += sym;
-    drawKeyed();
-    $("tapInfo").textContent = "Last press " + Math.round(dur) + " ms, counted as a " + (sym === "." ? "dot" : "dash") + " (dash starts at " + Math.round(2 * u) + " ms)";
-    statusEl.textContent = "Keying · " + tap.cur.replace(/-/g, "–");
-    tap.letterTimer = setTimeout(commitLetter, 2 * u);
-    tap.wordTimer = setTimeout(addSpace, 5 * u);
-  }
-
-  function updateHint() {
-    var u = unit();
-    $("timingHint").textContent = "At " + $("wpm").value + " WPM a press shorter than " + Math.round(2 * u) +
-      " ms is a dot and a longer one is a dash. A pause of " + Math.round(2 * u) + " ms ends a letter, and " +
-      Math.round(5 * u) + " ms adds a space. Match the speed slider to the sender.";
-  }
-
-  function buildChart() {
-    var root = $("chart");
-    Object.keys(MORSE).forEach(function (k) {
-      var c = document.createElement("div"); c.className = "cell";
-      var ch = document.createElement("span"); ch.className = "ch"; ch.textContent = k;
-      var bars = document.createElement("span"); bars.className = "bars";
-      MORSE[k].split("").forEach(function (s) {
-        var b = document.createElement("span"); b.className = "bar " + (s === "." ? "dot" : "dash"); bars.appendChild(b);
-      });
-      c.appendChild(ch); c.appendChild(bars); root.appendChild(c);
-    });
-  }
-
-  function resetTap() {
-    clearTimeout(tap.letterTimer); clearTimeout(tap.wordTimer);
-    tap.cur = ""; tap.down = false; tapTone(false);
-    pad.classList.remove("down");
-    drawKeyed();
-  }
-
-  function setMode(m) {
-    if (m === mode) return;
-    if (running) stop();
-    resetTap();
-    lamp.classList.remove("on");
-    mode = m;
-    var d = m === "decode";
-    $("sendView").hidden = d;
-    $("decodeView").hidden = !d;
-    $("tabSend").setAttribute("aria-selected", String(!d));
-    $("tabDecode").setAttribute("aria-selected", String(d));
-    statusEl.textContent = d ? "Listening for your taps" : "Ready";
-    if (d) { updateHint(); try { pad.focus({ preventScroll: true }); } catch (e) {} }
-  }
-
-  function copyText(btn, label, text) {
-    function ok() { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = label; }, 1400); }
-    function fallback() {
-      var ta = document.createElement("textarea");
-      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
-      document.body.appendChild(ta); ta.select();
-      try { document.execCommand("copy"); ok(); } catch (e) {}
-      document.body.removeChild(ta);
-    }
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, fallback);
-    else fallback();
-  }
-
-  /* ---------- events ---------- */
-  goBtn.addEventListener("click", function () {
-    transmit().catch(function () { finish("Ready"); setNote("Something went wrong while sending. Try again.", true); });
-  });
-  flash.addEventListener("click", stop);
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && running) stop();
-    if (mode === "decode" && e.code === "Space" && !e.repeat) {
-      var a = document.activeElement;
-      if (a === document.body || a === pad) { e.preventDefault(); pressStart(); }
-    }
-  });
-  document.addEventListener("keyup", function (e) {
-    if (mode === "decode" && e.code === "Space" && tap.down) { e.preventDefault(); pressEnd(); }
-  });
-
-  pad.addEventListener("pointerdown", function (e) {
-    e.preventDefault();
-    try { pad.setPointerCapture(e.pointerId); } catch (err) {}
-    pad.focus({ preventScroll: true });
-    pressStart();
-  });
-  pad.addEventListener("pointerup", pressEnd);
-  pad.addEventListener("pointercancel", pressEnd);
-  pad.addEventListener("keydown", function (e) {
-    if ((e.key === "Enter") && !e.repeat) { e.preventDefault(); pressStart(); }
-  });
-  pad.addEventListener("keyup", function (e) { if (e.key === "Enter") { e.preventDefault(); pressEnd(); } });
-  pad.addEventListener("contextmenu", function (e) { e.preventDefault(); });
-
-  $("tabSend").addEventListener("click", function () { setMode("send"); });
-  $("tabDecode").addEventListener("click", function () { setMode("decode"); });
-  $("back").addEventListener("click", function () {
-    if (tap.cur) { tap.cur = tap.cur.slice(0, -1); drawKeyed(); }
-    else { tap.text = tap.text.slice(0, -1); drawDecoded(); }
-  });
-  $("clear").addEventListener("click", function () {
-    resetTap(); tap.text = ""; drawDecoded();
-    $("tapInfo").textContent = "Waiting for your first tap";
-  });
-  $("copyDec").addEventListener("click", function () { copyText(this, "Copy text", tap.text.trim()); });
-
-  msg.addEventListener("input", function () { if (running) stop(); render(); });
-  $("wpm").addEventListener("input", function () {
-    $("wpmOut").textContent = this.value + " WPM"; updateEta(); updateHint(); save();
-  });
-  $("tone").addEventListener("input", function () {
-    $("toneOut").textContent = this.value + " Hz";
-    if (osc && ctx) osc.frequency.setValueAtTime(+this.value, ctx.currentTime);
-    save();
-  });
-  ["sound", "light", "torch"].forEach(function (id) {
-    $(id).addEventListener("change", function () { setNote(""); save(); });
-  });
-
-  $("copy").addEventListener("click", function () { copyText(this, "Copy Morse", plainMorse()); });
-
-  load();
-  $("wpmOut").textContent = $("wpm").value + " WPM";
-  $("toneOut").textContent = $("tone").value + " Hz";
-  buildChart();
-  updateHint();
-  render();
-})();
-</script>
+</body>
+</html>

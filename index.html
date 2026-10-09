@@ -1,3 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{height:100%}
+body{margin:0;font:14px system-ui,sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
 <title>Morse Lamp</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -185,6 +197,9 @@ summary { cursor: pointer; font-weight: 600; }
 .bar.dot { width: 6px; }
 .bar.dash { width: 18px; }
 
+.foot { border-top: 1px solid var(--line); padding-top: 20px; font-size: 0.875rem; }
+.foot a { color: var(--ink); font-weight: 600; }
+
 .flash {
   position: fixed; inset: 0; z-index: 50; background: var(--flash);
   opacity: 0; display: flex; align-items: flex-end; justify-content: center;
@@ -197,11 +212,13 @@ summary { cursor: pointer; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .lamp, .sym { transition: none; } }
 </style>
 
+</head>
+<body>
 <div class="wrap">
   <header>
     <h1>Morse Lamp</h1>
     <p class="sub">Send a short message as tones, a flashing screen or the phone torch. Or tap a message in and watch it decode.</p>
-    <a class="guide" href="https://claude.ai/artifact/ADv29kSJfCXgcS8uoooNbd">How it works and how to use it</a>
+    <a class="guide" href="guide.html">How it works and how to use it</a>
   </header>
 
   <div class="tabs" role="tablist" aria-label="Mode">
@@ -284,8 +301,8 @@ summary { cursor: pointer; font-weight: 600; }
     </div>
   </section>
 
-  <footer style="margin-top: 24px; text-align: center;">
-    <a class="guide" href="https://github.com/jicoing" target="_blank" rel="noopener">GitHub</a>
+  <footer class="foot">
+    <a href="https://github.com/jicoing" target="_blank" rel="noopener">GitHub · jicoing</a>
   </footer>
 </div>
 
@@ -731,3 +748,6 @@ summary { cursor: pointer; font-weight: 600; }
   render();
 })();
 </script>
+
+</body>
+</html>
